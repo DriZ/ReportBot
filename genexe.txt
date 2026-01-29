@@ -1,0 +1,1 @@
+pyinstaller --onefile --noconsole --add-data "config.json;." --add-data "tg.png;." --add-data "totals_pok.json;." --add-data "totals_skok.json;." --add-data "modules;modules" --hidden-import "dotenv" --hidden-import "salesdrive" --hidden-import "telegram" --hidden-import "utils" main.py
