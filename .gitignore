@@ -1,8 +1,8 @@
-/node_modules/
 /dist/
+/build/
+/.venv/
 .env
 .DS_Store
 .vscode/
-/build/
 ReportBot.rar
-.venv
+main.spec
