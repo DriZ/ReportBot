@@ -1,8 +1,9 @@
-/dist/
-/build/
-/.venv/
+dist
+build
+.venv
 .env
 .DS_Store
-.vscode/
+.vscode
 ReportBot.rar
 main.spec
+modules/__pycache__

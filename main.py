@@ -1,5 +1,4 @@
 import asyncio
-from datetime import date, timedelta
 import traceback
 import schedule
 import os
