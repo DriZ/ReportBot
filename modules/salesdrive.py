@@ -158,7 +158,7 @@ class SalesDrive:
             # Безопасный доступ к данным о доставке во избежание IndexError
             delivery_data = item.get("ord_delivery_data", [])
             ttn_info = "Не додано"
-            if len(delivery_data[0]) > 0 and delivery_data[0].get("trackingNumber"):
+            if delivery_data is not None and len(delivery_data[0]) > 0 and delivery_data[0].get("trackingNumber"):
                 ttn_info = delivery_data[0].get("trackingNumber")
                 status_code = delivery_data[0].get("statusCode")
                 if status_code is not None:
