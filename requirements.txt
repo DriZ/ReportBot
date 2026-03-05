@@ -1,0 +1,8 @@
+aiohttp
+python-dotenv
+schedule
+pystray
+Pillow
+aiogram
+certifi
+pymongo

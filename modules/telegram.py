@@ -11,7 +11,7 @@ class Telegram:
 
     async def send(self, message: str, chat_id: str, topic_id: str = None) -> None:
         try:
-            await self.bot.send_message(chat_id, text=message) if topic_id is None else await self.bot.send_message(chat_id, text=message, message_thread_id=topic_id)
+            await self.bot.send_message(chat_id, text=message, parse_mode=ParseMode.HTML) if topic_id is None else await self.bot.send_message(chat_id, text=message, message_thread_id=topic_id, parse_mode=ParseMode.HTML)
         except Exception as e:
             print(e)
 

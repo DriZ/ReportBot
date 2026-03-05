@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date, timedelta
 import traceback
 import schedule
 import os
@@ -10,13 +11,15 @@ from PIL import Image
 import sys
 import threading
 import ctypes
-from datetime import date, timedelta
 
-
+# Скрываем окно консоли только в Windows
 ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
 
 def create_tray_icon():
-    image = Image.open('./tg.png')
+    # Надежный способ получить путь к иконке, работает и в скрипте, и в .exe
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    image_path = os.path.join(script_dir, 'tg.png')
+    image = Image.open(image_path)
     menu = (pystray.MenuItem("Выход", exit_app),)
     icon = pystray.Icon("ReportBot", image, "ReportBot", menu)
     icon.run()
@@ -32,9 +35,12 @@ load_dotenv()
 
 async def send_report(bot: Telegram, chat_id, project: str, topic_id: str = None):
     sd = SalesDrive(os.getenv("URL"), os.getenv(project))
-    report = await sd.generate_report(chat_id)
-    await bot.send('\n'.join(report), chat_id, topic_id)
-    print("Report sent at", strftime("%Y-%m-%d %H:%M:%S"))
+    try:
+        report = await sd.generate_report()
+        await bot.send('\n'.join(report), chat_id, topic_id)
+        print("Report sent at", strftime("%Y-%m-%d %H:%M:%S"))
+    finally:
+        await sd.close()
 
 
 async def run_bot(bot: Telegram):
@@ -47,10 +53,22 @@ async def start():
 
     asyncio.create_task(run_bot(bot))
 
-    schedule.every().day.at("19:00").do(lambda: asyncio.create_task(send_report(bot, chat_id=os.getenv('SKOK_REPORTS_CHAT_ID'), project='SKOK')))
-    schedule.every().day.at("19:01").do(lambda: asyncio.create_task(send_report(bot, chat_id=os.getenv('POK_CHAT_ID'), project='POK')))
-    schedule.every().day.at("21:00").do(lambda: asyncio.create_task(send_report(bot, chat_id=os.getenv('SKOK_REPORTS_CHAT_ID'), project='SKOK')))
-    schedule.every().day.at("21:01").do(lambda: asyncio.create_task(send_report(bot, chat_id=os.getenv('POK_CHAT_ID'), project='POK')))
+    report_jobs = [
+        {"time": "19:00", "chat_id_env": "SKOK_REPORTS_CHAT_ID", "project": "SKOK"},
+        {"time": "19:01", "chat_id_env": "POK_CHAT_ID", "project": "POK"},
+        {"time": "21:00", "chat_id_env": "SKOK_REPORTS_CHAT_ID", "project": "SKOK"},
+        {"time": "21:01", "chat_id_env": "POK_CHAT_ID", "project": "POK"},
+    ]
+
+    for job_config in report_jobs:
+        # Используем lambda с захватом переменной, чтобы избежать проблем с поздним связыванием в цикле
+        schedule.every().day.at(job_config["time"]).do(
+            lambda config=job_config: asyncio.create_task(
+                send_report(bot, chat_id=os.getenv(config["chat_id_env"]), project=config["project"])
+            )
+        )
+
+    
     await send_report(bot, chat_id = os.getenv('ADMIN2_ID'), project='SKOK')
     await send_report(bot, chat_id = os.getenv('ADMIN2_ID'), project='POK')
 

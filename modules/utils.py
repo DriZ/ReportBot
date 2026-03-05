@@ -1,12 +1,19 @@
-import json
 import os
 import datetime
 import re
 import traceback
 from typing import Optional, Union
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+import certifi
+
+# --- MongoDB Connection Pooling ---
+# MongoClient спроектирован для создания одного экземпляра и его повторного использования.
+# Этот глобальный клиент будет управлять пулом соединений.
+_mongo_client = None
 
 
-def bom(date: datetime.date):
+def bom(date: datetime.date) -> datetime.date:
     """
 
     :param date:
@@ -15,7 +22,7 @@ def bom(date: datetime.date):
     return date.replace(day=1)
 
 
-def eom(data: datetime.date):
+def eom(data: datetime.date) -> datetime.date:
     """
 
     :param data:
@@ -29,53 +36,61 @@ def workdays_count(start_date: datetime.date, end_date: datetime.date) -> int:
                     if (start_date + datetime.timedelta(days=day)).weekday() < 5)
 
 
-def calc_plan(date: datetime.date, project):
-    with open(f"{os.path.dirname(os.path.abspath(__file__))}/../totals_{project}.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
+def get_collection():
+    global _mongo_client
+    if _mongo_client is None:
+        uri = os.getenv("MONGODB_URI")
+        # Этот клиент создается один раз и используется повторно, управляя пулом соединений.
+        _mongo_client = MongoClient(uri, server_api=ServerApi('1'), tlsCAFile=certifi.where())
+    # Примечание: Мы не возвращаем клиент, чтобы избежать его закрытия в каждой функции.
+    # Пул соединений управляется единственным экземпляром MongoClient.
+    return _mongo_client.get_database()["totals"]
 
+
+def calc_plan(date: datetime.date, project):
+    collection = get_collection()
     target_year = date.year
     target_month = date.month
 
-    numerator = sum(
-        value for year, months in data.items()
-        for month, value in months.items()
-        if month == str(target_month) and int(year) < target_year and value is not None
-    )
+    pipeline = [
+        {
+            "$match": {
+                "project": project,
+                "month": target_month,
+                "year": {"$lt": target_year},
+                "value": {"$ne": None}
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "numerator": {"$sum": "$value"},
+                "denominator": {
+                    "$sum": {"$cond": [{"$gt": ["$value", 0]}, 1, 0]}
+                }
+            }
+        }
+    ]
+    result_doc = next(collection.aggregate(pipeline), None)
 
-    denominator = sum(
-        int(value > 0)
-        for year, months in data.items()
-        for month, value in months.items()
-        if month == str(target_month) and int(year) < target_year and value is not None
-    )
-
-    result = round(numerator / denominator * 1.2) if denominator != 0 else 0
-
-    if str(target_year) not in [*data]:
-        data[str(target_year)] = {}
-
-    data[str(target_year)][str(target_month)] = result
-
-    return result
+    if result_doc and result_doc.get('denominator', 0) > 0:
+        return round(result_doc['numerator'] / result_doc['denominator'] * 1.2)
+    return 0
 
 
 def write_fact(date: datetime.date, fact, project):
+    collection = get_collection()
     try:
-        with open(f"{os.path.dirname(os.path.abspath(__file__))}/../totals_{project}.json", "r", encoding="utf-8") as file:
-            dat = json.load(file)
-
         target_year = date.year
         target_month = date.month
 
-        if str(target_year) not in [*dat]:
-            dat[str(target_year)] = {}
-
-        dat[str(target_year)][str(target_month)] = fact
-
-        with open(f"{os.path.dirname(os.path.abspath(__file__))}/../totals_{project}.json", "w", encoding="utf-8") as f:
-            json.dump(dat, f, indent=4, ensure_ascii=False)
+        collection.update_one(
+            {"project": project, "year": target_year, "month": target_month},
+            {"$set": {"value": fact}},
+            upsert=True
+        )
     except Exception as e:
-        print(f'Виникла помилка при збереженні даних {fact} в totals_{project}.json:\n{e}')
+        print(f'Виникла помилка при збереженні даних {fact} в MongoDB:\n{e}')
         traceback.print_exc()
 
 
@@ -192,4 +207,3 @@ def shorten_report(text: str):
     for pattern, repl in replacements:
         text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
     return text
-
