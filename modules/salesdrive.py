@@ -144,7 +144,7 @@ class SalesDrive:
     - B2B: {format_num(wholesale_sum)} грн.
 Прогноз: {format_num(forecast)} грн. {forecast_perc}(%)
 {f"""
-<i>B2B²: {format_num(opt_opt_sum)} грн.</i>""" if self.project_name == "POK" else ""}
+<i>B2B²: {format_num(opt_opt_sum)} грн.</i>""" if self.project_name == "pok" else ""}
     
 Одержано сьогодні на: {today_retail_sum+today_wholesale_sum+today_opt_opt_sum} грн. ({today_retail_count+today_wholesale_count+today_opt_opt_count} відправок)   
 Виконання: {plan_perc}   %\n\n """
