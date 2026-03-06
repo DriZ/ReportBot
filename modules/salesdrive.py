@@ -143,8 +143,8 @@ class SalesDrive:
     - B2C: {format_num(retail_sum)} грн.
     - B2B: {format_num(wholesale_sum)} грн.
 Прогноз: {format_num(forecast)} грн. {forecast_perc}(%)
-
-<i>B2B²: {format_num(opt_opt_sum)} грн.</i>
+{f"""
+<i>B2B²: {format_num(opt_opt_sum)} грн.</i>""" if self.project_name == "POK" else ""}
     
 Одержано сьогодні на: {today_retail_sum+today_wholesale_sum+today_opt_opt_sum} грн. ({today_retail_count+today_wholesale_count+today_opt_opt_count} відправок)   
 Виконання: {plan_perc}   %\n\n """
@@ -155,7 +155,6 @@ class SalesDrive:
                 f'{product["text"]} <b>{"x" + str(product["amount"]) if product["amount"] > 1 else ""}</b>' for product in item["products"]
             )
 
-            # Безопасный доступ к данным о доставке во избежание IndexError
             delivery_data = item.get("ord_delivery_data", [])
             ttn_info = "Не додано"
             if delivery_data is not None and len(delivery_data[0]) > 0 and delivery_data[0].get("trackingNumber"):
